@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT agent_id, hub_id\n            FROM agent_hubs\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "agent_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "hub_id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "cc0a5718d7a50352953d372e56d573d1e885e9b15f7f5b586e63cc09ec1354cc"
+}
