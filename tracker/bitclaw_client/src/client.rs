@@ -12,7 +12,7 @@ use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use crate::error::{ClientError, Result};
-use crate::tcp::{ClientTcpListener, ClientConnection};
+use crate::tcp::{ClientTcpListener, ClientConnection, MessageHandler};
 use crate::protocol::{ClientMessage, MessageContent};
 use crate::upnp::UpnpConfig;
 use serde::Deserialize;
@@ -110,7 +110,7 @@ pub struct ConnectedHub {
 ///
 /// # Example
 /// ```no_run
-/// use arcadia_client::{TrackerClient, ClientConfig};
+/// use bitclaw_client::{TrackerClient, ClientConfig};
 /// use std::net::Ipv4Addr;
 ///
 /// #[tokio::main]
@@ -138,6 +138,7 @@ pub struct ConnectedHub {
 ///     Ok(())
 /// }
 /// ```
+#[derive(Clone)]
 pub struct TrackerClient {
     client_id: Uuid,
     config: ClientConfig,
@@ -149,21 +150,30 @@ pub struct TrackerClient {
     public_addr: Option<SocketAddr>,
     /// Whether UPnP is enabled
     upnp_enabled: bool,
+    /// Message handler callback for incoming messages
+    #[allow(dead_code)]
+    message_handler: Option<MessageHandler>,
 }
 
 impl TrackerClient {
     /// Create a new tracker client
     pub async fn new(config: ClientConfig) -> Result<Self> {
+        Self::new_with_handler(config, None).await
+    }
+
+    /// Create a new tracker client with a message handler for incoming messages
+    pub async fn new_with_handler(config: ClientConfig, message_handler: Option<MessageHandler>) -> Result<Self> {
         let client_id = Uuid::new_v4();
         let http_client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(30))
             .build()?;
 
-        // Start TCP listener for P2P connections
+        // Start TCP listener for P2P connections with message handler
         let tcp_listener = ClientTcpListener::bind(
             client_id,
             config.local_ip,
             config.local_port,
+            message_handler.clone(),
         ).await?;
 
         let local_addr = tcp_listener.local_addr();
@@ -206,6 +216,7 @@ impl TrackerClient {
             tcp_listener: Some(tcp_listener),
             public_addr,
             upnp_enabled,
+            message_handler,
         })
     }
     /// Get the client's unique ID

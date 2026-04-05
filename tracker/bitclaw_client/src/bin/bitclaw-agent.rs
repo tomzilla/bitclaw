@@ -1,12 +1,16 @@
-//! Arcadia Client CLI - Command-line interface for tracker operations
+//! BitClaw Client CLI - Command-line interface for tracker operations
 //!
 //! Usage:
-//!   arcadia-agent list-hubs --tracker-url http://localhost:8000
-//!   arcadia-agent register --tracker-url http://localhost:8000 --name my-agent --hub my-hub
-//!   arcadia-agent find-agent --tracker-url http://localhost:8000 --query searcher
+//!   bitclaw-agent list-hubs --tracker-url http://localhost:8000
+//!   bitclaw-agent register --tracker-url http://localhost:8000 --name my-agent --hub my-hub
+//!   bitclaw-agent find-agent --tracker-url http://localhost:8000 --query searcher
+//!   bitclaw-agent listen --tracker-url http://localhost:8000 --name my-agent
 //!
 
-use arcadia_client::{TrackerClient, ClientConfig};
+use bitclaw_client::{TrackerClient, ClientConfig, ClientMessage, MessageContent, MessageHandler};
+use std::sync::Arc;
+use tokio::sync::mpsc;
+use uuid::Uuid;
 
 #[derive(Debug, serde::Serialize)]
 struct Output<T: serde::Serialize> {
@@ -61,7 +65,7 @@ async fn main() {
 
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 {
-        print_json(&json_error("Usage: arcadia-agent <command> [options]"));
+        print_json(&json_error("Usage: bitclaw-agent <command> [options]"));
         std::process::exit(1);
     }
 
@@ -72,6 +76,7 @@ async fn main() {
         "list-hubs" => cmd_list_hubs(rest).await,
         "register" => cmd_register(rest).await,
         "find-agent" => cmd_find_agent(rest).await,
+        "listen" => cmd_listen(rest).await,
         "help" | "--help" | "-h" => {
             print_help();
             return;
@@ -90,14 +95,15 @@ async fn main() {
 
 fn print_help() {
     println!(r#"
-Arcadia Agent CLI - P2P coordination via tracker
+BitClaw Agent CLI - P2P coordination via tracker
 
-Usage: arcadia-agent <command> [options]
+Usage: bitclaw-agent <command> [options]
 
 Commands:
   list-hubs       List available tracker hubs
   register        Register as an agent with the tracker
   find-agent      Find agents by search query
+  listen          Start persistent listener for incoming messages (JSONL output)
   help            Show this help message
 
 Options:
@@ -107,11 +113,13 @@ Options:
   --hub <name>            Hub name to join (optional)
   --query <string>        Search query for finding agents
   --lan-mode              Use LAN mode (no UPnP port forwarding)
+  --port <port>           Local port for P2P connections (listen mode)
 
 Examples:
-  arcadia-agent list-hubs --tracker-url http://localhost:8000
-  arcadia-agent register --tracker-url http://localhost:8000 --name my-agent --hub code-generation
-  arcadia-agent find-agent --tracker-url http://localhost:8000 --query "code review"
+  bitclaw-agent list-hubs --tracker-url http://localhost:8000
+  bitclaw-agent register --tracker-url http://localhost:8000 --name my-agent --hub code-generation
+  bitclaw-agent find-agent --tracker-url http://localhost:8000 --query "code review"
+  bitclaw-agent listen --tracker-url http://localhost:8000 --name my-agent --hub general
 "#);
 }
 
@@ -263,4 +271,100 @@ async fn cmd_find_agent(_args: &[String]) -> Result<String, String> {
     };
 
     Ok(json_output(agent_list))
+}
+
+async fn cmd_listen(_args: &[String]) -> Result<String, String> {
+    let tracker_url = get_arg_value(_args, "tracker-url")
+        .unwrap_or_else(|| "http://127.0.0.1:8080".to_string());
+    let name = get_arg_value(_args, "name")
+        .unwrap_or_else(|| "listen-client".to_string());
+    let hub = get_arg_value(_args, "hub")
+        .unwrap_or_else(|| "general".to_string());
+    let _port: u16 = get_arg_value(_args, "port")
+        .unwrap_or_else(|| "0".to_string())
+        .parse()
+        .unwrap_or(0);
+    let lan_mode = has_arg(_args, "lan-mode") || has_arg(_args, "lan");
+
+    eprintln!("=== BitClaw Listen Mode ===");
+    eprintln!("Tracker URL: {}", tracker_url);
+    eprintln!("Client Name: {}", name);
+    eprintln!("Hub: {}", hub);
+    eprintln!("LAN Mode: {}", lan_mode);
+    eprintln!();
+    eprintln!("Listening for incoming messages. Output is JSONL format:");
+    eprintln!("  {{\"type\": \"message\", \"from\": \"<uuid>\", \"content\": {{...}}}}");
+    eprintln!();
+    eprintln!("Press Ctrl+C to stop.");
+    eprintln!();
+
+    let config = if lan_mode {
+        ClientConfig::lan_mode(tracker_url.clone(), name.clone())
+    } else {
+        ClientConfig::with_upnp(tracker_url.clone(), name.clone(), None)
+    };
+
+    // Create a channel for receiving messages
+    let (msg_tx, mut msg_rx) = mpsc::channel::<(Uuid, ClientMessage)>(100);
+
+    // Create message handler that sends to channel
+    let handler: MessageHandler = Arc::new(move |from, msg| {
+        // Use try_send to avoid blocking in async context
+        let _ = msg_tx.try_send((from, msg));
+    });
+
+    // Create client with message handler
+    let client = TrackerClient::new_with_handler(config, Some(handler))
+        .await
+        .map_err(|e| format!("Failed to create client: {}", e))?;
+
+    eprintln!("Client ID: {}", client.client_id());
+    eprintln!("Listening on: {}", client.local_addr().unwrap());
+    if let Some(public_addr) = client.public_addr() {
+        eprintln!("Public address: {}", public_addr);
+    }
+    eprintln!();
+
+    // Connect to hub (optional - P2P listening works without hub connection)
+    eprintln!("Note: Hub connection is optional for P2P listening.");
+    eprintln!("For direct P2P messaging, no hub connection is needed.");
+    eprintln!();
+    eprintln!("--- INCOMING MESSAGES ---");
+
+    // Set up signal handler for graceful shutdown
+    let shutdown_client = client.clone();
+    tokio::spawn(async move {
+        tokio::signal::ctrl_c().await.expect("Failed to listen for Ctrl+C");
+        eprintln!("\nShutting down...");
+        let _ = shutdown_client.shutdown().await;
+        std::process::exit(0);
+    });
+
+    // Main message loop - output messages as JSONL
+    while let Some((from, msg)) = msg_rx.recv().await {
+        #[derive(serde::Serialize)]
+        struct IncomingMessage {
+            #[serde(rename = "type")]
+            msg_type: &'static str,
+            from: String,
+            content: MessageContent,
+            timestamp: String,
+        }
+
+        let output = IncomingMessage {
+            msg_type: "message",
+            from: from.to_string(),
+            content: msg.content,
+            timestamp: chrono::Utc::now().to_rfc3339(),
+        };
+
+        // Output as single-line JSON (JSONL format)
+        let json_line = serde_json::to_string(&output).map_err(|e| e.to_string())?;
+        println!("{}", json_line);
+        // Flush stdout to ensure immediate delivery
+        use std::io::Write;
+        let _ = std::io::stdout().flush();
+    }
+
+    Ok("Listener stopped".to_string())
 }

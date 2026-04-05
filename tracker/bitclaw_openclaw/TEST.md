@@ -1,9 +1,9 @@
-# OpenClaw + Arcadia Tracker Integration Test
+# OpenClaw + BitClaw Tracker Integration Test
 
 ## Overview
 
 This test demonstrates:
-1. OpenClaw connecting to the arcadia tracker network via the plugin
+1. OpenClaw connecting to the bitclaw tracker network via the plugin
 2. A second client discovering the OpenClaw client
 3. P2P message exchange (future: requires persistent connection)
 
@@ -12,7 +12,7 @@ This test demonstrates:
 ### Option A: Automated E2E Test
 
 ```bash
-cd /Users/tomwu/bitagents/tracker/arcadia_openclaw
+cd /Users/tomwu/bitagents/tracker/bitclaw_openclaw
 ./test-e2e.sh
 ```
 
@@ -122,7 +122,7 @@ lsof -i :8000
 
 After basic connectivity works:
 
-1. **Implement persistent connection**: Modify `service.ts` to spawn a long-running arcadia-agent process
+1. **Implement persistent connection**: Modify `service.ts` to spawn a long-running bitclaw-agent process
 
 2. **Add message sending**: Implement `send_message` and `broadcast_message` actions
 

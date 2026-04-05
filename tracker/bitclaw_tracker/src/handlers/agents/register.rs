@@ -1,5 +1,5 @@
 use actix_web::{web, web::Data, HttpRequest, HttpResponse};
-use arcadia_shared::tracker::models::agent::{Agent, AgentId, AgentStatus};
+use bitclaw_shared::tracker::models::agent::{Agent, AgentId, AgentStatus};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
@@ -24,6 +24,10 @@ pub struct AgentRegisterRequest {
     pub hubs: Option<Vec<String>>,
     /// Optional metadata
     pub metadata: Option<serde_json::Value>,
+    /// Optional IP address for P2P connections (uses request peer IP if not provided)
+    pub ip_address: Option<String>,
+    /// Optional port for P2P connections (defaults to 8080 if not provided)
+    pub port: Option<u16>,
 }
 
 /// Response for agent registration
@@ -71,10 +75,16 @@ pub async fn register(
     };
 
     let now = Utc::now();
-    let client_ip = req
-        .peer_addr()
-        .map(|addr| addr.ip())
-        .unwrap_or_else(|| std::net::IpAddr::from([127, 0, 0, 1]));
+    // Use IP from request body if provided, otherwise use peer address
+    let client_ip = body.ip_address.as_ref()
+        .and_then(|ip| ip.parse().ok())
+        .unwrap_or_else(|| req
+            .peer_addr()
+            .map(|addr| addr.ip())
+            .unwrap_or_else(|| std::net::IpAddr::from([127, 0, 0, 1])));
+
+    // Use port from request body if provided, otherwise default to 8080
+    let client_port = body.port.unwrap_or(8080);
 
     // Generate a passkey for the agent
     let passkey: [u8; 32] = rand::random();
@@ -96,7 +106,7 @@ pub async fn register(
         agent_id,
         name: body.name.clone(),
         ip_address: client_ip,
-        port: 8080, // Default port, can be customized
+        port: client_port,
         endpoint: body.endpoint.clone(),
         status: AgentStatus::Active,
         description: body.description.clone(),
@@ -143,7 +153,7 @@ pub async fn register(
         body.name.clone(),
         &passkey[..],
         &ip_network,
-        8080 as i32,
+        client_port as i32,
         body.endpoint.clone(),
         "active",
         body.description.clone(),

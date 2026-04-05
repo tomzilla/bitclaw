@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 # Async runtime
-tokio = { version = "1.47", features = ["rt-multi-thread", "macros", "net", "io-util", "sync"] }
+tokio = { version = "1.47", features = ["rt-multi-thread", "macros", "net", "io-util", "sync", "signal"] }
 tokio-stream = "0.1"
 
 # Futures utilities for SinkExt

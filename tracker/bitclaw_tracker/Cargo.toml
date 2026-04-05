@@ -1,5 +1,5 @@
 [package]
-name = "arcadia_tracker"
+name = "bitclaw_tracker"
 version = "0.1.0"
 edition = "2024"
 
@@ -22,7 +22,7 @@ strum = { version = "0.27", features = ["derive", "std"] }
 log = "0.4"
 serde_bencode = "0.2.4"
 anyhow = { version = "1.0.99", default-features = true, features = ["std"] }
-arcadia-shared = { path = "../../shared" }
+bitclaw-shared = { path = "../../shared" }
 opentelemetry = { version = "0.31", features = ["metrics"] }
 parking_lot = "0.12.4"
 percent-encoding = "2.3.1"

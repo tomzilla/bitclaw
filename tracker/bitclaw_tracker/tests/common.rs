@@ -4,10 +4,10 @@ use actix_web::{
     dev::{Service, ServiceResponse},
     test, web, App, Error,
 };
-use arcadia_shared::tracker::models::{
-    env::ArcadiaSettingsForTracker, infohash_2_id, passkey_2_id, torrent, user,
+use bitclaw_shared::tracker::models::{
+    env::BitclawSettingsForTracker, infohash_2_id, passkey_2_id, torrent, user,
 };
-use arcadia_tracker::{
+use bitclaw_tracker::{
     env::{AllowedTorrentClientSet, Env},
     routes::init,
     Tracker,
@@ -43,7 +43,7 @@ pub async fn create_test_app(
     };
 
     // Load data from test database
-    let settings = ArcadiaSettingsForTracker::from_database(&pool).await;
+    let settings = BitclawSettingsForTracker::from_database(&pool).await;
     let users = user::Map::from_database(&pool).await;
     let passkey2id = passkey_2_id::Map::from_database(&pool).await;
     let infohash2id = infohash_2_id::Map::from_database(&pool).await;

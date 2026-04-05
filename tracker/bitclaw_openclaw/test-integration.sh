@@ -1,5 +1,5 @@
 #!/bin/bash
-# Test script for OpenClaw + Arcadia Tracker integration
+# Test script for OpenClaw + BitClaw Tracker integration
 # This script:
 # 1. Starts the tracker server
 # 2. Starts OpenClaw client (connects to hub)
@@ -7,7 +7,7 @@
 
 set -e
 
-echo "=== Arcadia Tracker Test Setup ==="
+echo "=== BitClaw Tracker Test Setup ==="
 
 # Configuration
 TRACKER_PORT=${TRACKER_PORT:-8000}
@@ -34,15 +34,15 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Check if arcadia-agent binary exists
-ARCADIA_BIN="${ARCADIA_AGENT_BIN:-/Users/tomwu/bitagents/target/debug/arcadia-agent}"
-if [ ! -f "$ARCADIA_BIN" ]; then
-    log_error "arcadia-agent binary not found at $ARCADIA_BIN"
-    log_info "Build it with: cd tracker/arcadia_client && cargo build --bin arcadia-agent"
+# Check if bitclaw-agent binary exists
+BITCLAW_BIN="${BITCLAW_AGENT_BIN:-/Users/tomwu/bitagents/target/debug/bitclaw-agent}"
+if [ ! -f "$BITCLAW_BIN" ]; then
+    log_error "bitclaw-agent binary not found at $BITCLAW_BIN"
+    log_info "Build it with: cd tracker/bitclaw_client && cargo build --bin bitclaw-agent"
     exit 1
 fi
 
-log_info "Using arcadia-agent: $ARCADIA_BIN"
+log_info "Using bitclaw-agent: $BITCLAW_BIN"
 
 # Step 1: Start tracker server
 log_info "Step 1: Starting tracker server..."
@@ -53,19 +53,19 @@ if curl -s "$TRACKER_URL/api/v1/hubs" > /dev/null 2>&1; then
 else
     log_info "Starting tracker server on port $TRACKER_PORT..."
     # You need to start your tracker server here
-    # Example: cargo run -p arcadia_tracker --bin tracker
+    # Example: cargo run -p bitclaw_tracker --bin tracker
     log_warn "Please start your tracker server manually:"
-    log_warn "  cd tracker/arcadia_tracker && cargo run"
+    log_warn "  cd tracker/bitclaw_tracker && cargo run"
     exit 1
 fi
 
 # Step 2: List available hubs
 log_info "Step 2: Listing hubs..."
-$ARCADIA_BIN list-hubs --tracker-url "$TRACKER_URL"
+$BITCLAW_BIN list-hubs --tracker-url "$TRACKER_URL"
 
 # Step 3: Connect OpenClaw client to hub
 log_info "Step 3: Connecting OpenClaw client to hub '$HUB_NAME'..."
-OPENCLAW_RESULT=$($ARCADIA_BIN connect-hub \
+OPENCLAW_RESULT=$($BITCLAW_BIN connect-hub \
     --tracker-url "$TRACKER_URL" \
     --hub-name "$HUB_NAME" \
     --client-name "$OPENCLAW_CLIENT_NAME" 2>&1)
@@ -84,18 +84,18 @@ fi
 log_info "Step 4: Starting sender client..."
 
 # Create a sender script that will send messages
-cat > /tmp/arcadia_sender_$$.sh << 'SENDER_EOF'
+cat > /tmp/bitclaw_sender_$$.sh << 'SENDER_EOF'
 #!/bin/bash
 TRACKER_URL="$1"
 HUB_NAME="$2"
 CLIENT_NAME="$3"
 RECIPIENT_ID="$4"
 
-ARCADIA_BIN="${ARCADIA_AGENT_BIN:-/Users/tomwu/bitagents/target/debug/arcadia-agent}"
+BITCLAW_BIN="${BITCLAW_AGENT_BIN:-/Users/tomwu/bitagents/target/debug/bitclaw-agent}"
 
 # Connect sender to same hub
 echo "Connecting sender to hub..."
-$ARCADIA_BIN connect-hub \
+$BITCLAW_BIN connect-hub \
     --tracker-url "$TRACKER_URL" \
     --hub-name "$HUB_NAME" \
     --client-name "$CLIENT_NAME"
@@ -110,11 +110,11 @@ for i in 1 2 3; do
 done
 SENDER_EOF
 
-chmod +x /tmp/arcadia_sender_$$.sh
+chmod +x /tmp/bitclaw_sender_$$.sh
 
 # Step 5: Test find-agent
 log_info "Step 5: Testing agent discovery..."
-$ARCADIA_BIN find-agent \
+$BITCLAW_BIN find-agent \
     --tracker-url "$TRACKER_URL" \
     --hub "$HUB_NAME" \
     --query "$OPENCLAW_CLIENT_NAME"
@@ -124,4 +124,4 @@ log_info "OpenClaw is now connected to the tracker network"
 log_info "Other agents can discover it via: find_agent(hub='$HUB_NAME', query='$OPENCLAW_CLIENT_NAME')"
 
 # Cleanup on exit
-trap "rm -f /tmp/arcadia_sender_$$.sh" EXIT
+trap "rm -f /tmp/bitclaw_sender_$$.sh" EXIT

@@ -19,8 +19,11 @@ use uuid::Uuid;
 
 use crate::error::{ClientError, Result};
 use crate::protocol::{
-    HandshakeRequest, HandshakeResponse, MessageFrame, MessageType, MAGIC, VERSION,
+    ClientMessage, HandshakeRequest, HandshakeResponse, MessageFrame, MessageType, MAGIC, VERSION,
 };
+
+/// Message handler callback type - called when a message is received
+pub type MessageHandler = Arc<dyn Fn(Uuid, ClientMessage) + Send + Sync + 'static>;
 
 /// Maximum message size (10 MB)
 const MAX_MESSAGE_SIZE: usize = 10 * 1024 * 1024;
@@ -130,10 +133,13 @@ pub struct PeerConnection {
 }
 
 /// TCP Listener for incoming client connections
+#[derive(Clone)]
 pub struct ClientTcpListener {
     local_addr: SocketAddr,
     connections: Arc<RwLock<HashMap<Uuid, PeerConnection>>>,
     shutdown_tx: mpsc::Sender<()>,
+    #[allow(dead_code)]
+    message_handler: Option<MessageHandler>,
 }
 
 impl ClientTcpListener {
@@ -142,6 +148,7 @@ impl ClientTcpListener {
         _client_id: Uuid,
         addr: IpAddr,
         port: u16,
+        message_handler: Option<MessageHandler>,
     ) -> Result<Self> {
         let local_addr = SocketAddr::new(addr, port);
         let (shutdown_tx, mut shutdown_rx) = mpsc::channel::<()>(1);
@@ -151,6 +158,7 @@ impl ClientTcpListener {
         let actual_addr = listener.local_addr()?;
 
         let conn_clone = Arc::clone(&connections);
+        let handler_clone = message_handler.clone();
 
         // Spawn listener task
         tokio::spawn(async move {
@@ -161,9 +169,15 @@ impl ClientTcpListener {
                             Ok((stream, addr)) => {
                                 log::info!("New connection from {}", addr);
                                 let conn_clone = Arc::clone(&conn_clone);
+                                let handler_clone = handler_clone.clone();
                                 tokio::spawn(async move {
-                                    if let Err(e) = handle_incoming_connection(stream, conn_clone).await {
-                                        log::error!("Error handling connection from {}: {}", addr, e);
+                                    if let Err(e) = handle_incoming_connection(stream, conn_clone, handler_clone).await {
+                                        // Log protocol errors as debug since they're expected from non-BitClaw connections
+                                        if matches!(e, ClientError::ProtocolError(_)) {
+                                            log::debug!("Rejected non-BitClaw connection from {}: {}", addr, e);
+                                        } else {
+                                            log::error!("Error handling connection from {}: {}", addr, e);
+                                        }
                                     }
                                 });
                             }
@@ -184,6 +198,7 @@ impl ClientTcpListener {
             local_addr: actual_addr,
             connections,
             shutdown_tx,
+            message_handler,
         })
     }
 
@@ -230,6 +245,7 @@ impl ClientTcpListener {
 async fn handle_incoming_connection(
     stream: TcpStream,
     connections: Arc<RwLock<HashMap<Uuid, PeerConnection>>>,
+    message_handler: Option<MessageHandler>,
 ) -> Result<()> {
     let (msg_tx, mut msg_rx) = mpsc::channel::<Vec<u8>>(100);
 
@@ -278,6 +294,7 @@ async fn handle_incoming_connection(
 
         let conn_clone = Arc::clone(&connections);
         let peer_id = handshake.client_id;
+        let handler = message_handler.clone();
 
         // Spawn writer task - sends outgoing messages
         tokio::spawn(async move {
@@ -323,19 +340,24 @@ async fn handle_incoming_connection(
                         }
                         MessageType::KeepAlive => continue,
                         MessageType::Message => {
-                            // Try to decode as ClientMessage for nice logging
+                            // Try to decode as ClientMessage
                             match bincode::deserialize::<crate::protocol::ClientMessage>(&frame.payload) {
                                 Ok(msg) => {
                                     match msg.content {
-                                        crate::protocol::MessageContent::Text(text) => {
+                                        crate::protocol::MessageContent::Text(ref text) => {
                                             log::info!("<< RECEIVED from {}: Text: {}", peer_id, text);
                                         }
-                                        crate::protocol::MessageContent::Json(json) => {
+                                        crate::protocol::MessageContent::Json(ref json) => {
                                             log::info!("<< RECEIVED from {}: Json: {}", peer_id, json);
                                         }
-                                        crate::protocol::MessageContent::Binary(data) => {
+                                        crate::protocol::MessageContent::Binary(ref data) => {
                                             log::info!("<< RECEIVED from {}: Binary ({} bytes)", peer_id, data.len());
                                         }
+                                    }
+
+                                    // Call the message handler if provided
+                                    if let Some(handler) = &handler {
+                                        handler(peer_id, msg);
                                     }
                                 }
                                 Err(e) => {

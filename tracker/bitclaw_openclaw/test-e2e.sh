@@ -1,5 +1,5 @@
 #!/bin/bash
-# End-to-end test for Arcadia Tracker + OpenClaw integration
+# End-to-end test for BitClaw Tracker + OpenClaw integration
 # This script:
 # 1. Starts the tracker server
 # 2. Lists available hubs
@@ -24,17 +24,17 @@ log_info() { echo -e "${GREEN}[INFO]${NC} $1"; }
 log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
-ARCADIA_BIN="${ARCADIA_AGENT_BIN:-/Users/tomwu/bitagents/target/debug/arcadia-agent}"
+BITCLAW_BIN="${BITCLAW_AGENT_BIN:-/Users/tomwu/bitagents/target/debug/bitclaw-agent}"
 
 # Check binary
-if [ ! -f "$ARCADIA_BIN" ]; then
-    log_error "arcadia-agent not found at $ARCADIA_BIN"
-    log_info "Build with: cargo build --bin arcadia-agent"
+if [ ! -f "$BITCLAW_BIN" ]; then
+    log_error "bitclaw-agent not found at $BITCLAW_BIN"
+    log_info "Build with: cargo build --bin bitclaw-agent"
     exit 1
 fi
 
 echo "========================================"
-echo "  Arcadia Tracker E2E Test"
+echo "  BitClaw Tracker E2E Test"
 echo "========================================"
 echo ""
 
@@ -46,7 +46,7 @@ if curl -s "$TRACKER_URL/api/v1/hubs" > /dev/null 2>&1; then
     log_info "Tracker already running at $TRACKER_URL"
 else
     log_info "Starting tracker in background..."
-    cd /Users/tomwu/bitagents/tracker/arcadia_tracker
+    cd /Users/tomwu/bitagents/tracker/bitclaw_tracker
 
     # Create .env if not exists
     cat > .env << 'EOF'
@@ -94,14 +94,14 @@ fi
 # Show available hubs
 echo ""
 log "Step 2: Listing available hubs..."
-$ARCADIA_BIN list-hubs --tracker-url "$TRACKER_URL"
+$BITCLAW_BIN list-hubs --tracker-url "$TRACKER_URL"
 
 # Step 3: Register OpenClaw client as an agent
 echo ""
 log "Step 3: Registering OpenClaw agent..."
 log_info "Hub: $HUB_NAME, Agent: openclaw-agent"
 
-OPENCLAW_OUTPUT=$($ARCADIA_BIN register \
+OPENCLAW_OUTPUT=$($BITCLAW_BIN register \
     --tracker-url "$TRACKER_URL" \
     --name "openclaw-agent" \
     --description "OpenClaw AI agent for code review and development" \
@@ -122,7 +122,7 @@ fi
 # Step 4: Register sender client
 echo ""
 log "Step 4: Registering sender agent..."
-SENDER_OUTPUT=$($ARCADIA_BIN register \
+SENDER_OUTPUT=$($BITCLAW_BIN register \
     --tracker-url "$TRACKER_URL" \
     --name "sender-agent" \
     --description "Test sender agent for message demonstration" \
@@ -159,10 +159,10 @@ echo ""
 log "Both agents are registered and discoverable"
 log "P2P messaging requires persistent connection (future enhancement)"
 echo ""
-log_warn "To clean up: kill the tracker process or run 'pkill -f arcadia_tracker'"
+log_warn "To clean up: kill the tracker process or run 'pkill -f bitclaw_tracker'"
 
 # Save connection info for follow-up tests
-cat > /tmp/arcadia_test_state.json << EOF
+cat > /tmp/bitclaw_test_state.json << EOF
 {
   "tracker_url": "$TRACKER_URL",
   "hub": "$HUB_NAME",
@@ -172,4 +172,4 @@ cat > /tmp/arcadia_test_state.json << EOF
 }
 EOF
 
-log_info "Connection state saved to /tmp/arcadia_test_state.json"
+log_info "Connection state saved to /tmp/bitclaw_test_state.json"

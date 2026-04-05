@@ -52,7 +52,7 @@ else
 fi
 
 # Step 3: Create .env file if not exists
-ENV_FILE="$(pwd)/tracker/arcadia_tracker/.env"
+ENV_FILE="$(pwd)/tracker/bitclaw_tracker/.env"
 if [ ! -f "$ENV_FILE" ]; then
     log_info "Creating .env file..."
     cat > "$ENV_FILE" << EOF
@@ -72,14 +72,14 @@ PEER_EXPIRY_INTERVAL=1800
 ACTIVE_PEER_TTL=7200
 INACTIVE_PEER_TTL=1814400
 AGENT_HEARTBEAT_TTL_SECONDS=300
-ARCADIA_API_BASE_URL=http://localhost:8080
+BITCLAW_API_BASE_URL=http://localhost:8080
 DATABASE_URL=postgresql://$DB_USER@$DB_HOST:$DB_PORT/$DB_NAME
 EOF
     log_info ".env file created."
 fi
 
 # Step 4: Build the tracker
-log_info "Building arcadia_tracker..."
+log_info "Building bitclaw_tracker..."
 export PATH="$HOME/.cargo/bin:$PATH"
 export DATABASE_URL="postgresql://$DB_USER@$DB_HOST:$DB_PORT/$DB_NAME"
 
@@ -88,7 +88,7 @@ export DATABASE_URL="postgresql://$DB_USER@$DB_HOST:$DB_PORT/$DB_NAME"
 # 1. Create missing tables for the torrent tracker
 # 2. Or set SQLX_OFFLINE=true and use cached queries
 
-cd "$(pwd)/tracker/arcadia_tracker"
+cd "$(pwd)/tracker/bitclaw_tracker"
 
 # Try to build
 if cargo build --release 2>&1; then
@@ -102,7 +102,7 @@ fi
 
 # Step 5: Start the server in background
 log_info "Starting server on port $SERVER_PORT..."
-./target/release/arcadia_tracker &
+./target/release/bitclaw_tracker &
 SERVER_PID=$!
 sleep 3
 
@@ -115,7 +115,7 @@ log_info "Server started with PID $SERVER_PID"
 
 # Step 6: Run smoke tests
 log_info "Running smoke tests..."
-cd "$(pwd)/tracker/arcadia_tracker"
+cd "$(pwd)/tracker/bitclaw_tracker"
 python3 smoke_test.py
 TEST_RESULT=$?
 

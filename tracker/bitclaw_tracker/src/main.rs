@@ -1,5 +1,5 @@
 use actix_web::{web::Data, App, HttpServer};
-use arcadia_tracker::{api_doc::ApiDoc, env::Env, routes::init, scheduler, Tracker};
+use bitclaw_tracker::{api_doc::ApiDoc, env::Env, routes::init, scheduler, Tracker};
 use envconfig::Envconfig;
 use std::env;
 use tracing_actix_web::TracingLogger;
@@ -12,7 +12,7 @@ async fn main() -> std::io::Result<()> {
         dotenvy::from_filename(".env").expect("cannot load env from a file");
     }
 
-    arcadia_shared::telemetry::init_telemetry();
+    bitclaw_shared::telemetry::init_telemetry();
 
     let env = Env::init_from_env().unwrap();
 
@@ -24,7 +24,7 @@ async fn main() -> std::io::Result<()> {
     let arc = Data::new(Tracker::new(env).await);
 
     if let Some(service_name) = &arc.otel_service_name {
-        arcadia_tracker::metrics::register(&arc, service_name);
+        bitclaw_tracker::metrics::register(&arc, service_name);
     } else {
         log::info!("OTEL_SERVICE_NAME is not set, skipping metrics registration");
     }

@@ -6,7 +6,7 @@
 //! 3. Exchanges messages bidirectionally
 //! 4. Verifies the connections work
 
-use arcadia_client::{ClientConfig, TrackerClient, MessageContent};
+use bitclaw_client::{ClientConfig, TrackerClient, MessageContent};
 use std::net::Ipv4Addr;
 use std::time::Duration;
 
@@ -14,7 +14,7 @@ use std::time::Duration;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize logging
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
-    println!("=== Arcadia Client P2P Integration Test ===\n");
+    println!("=== BitClaw Client P2P Integration Test ===\n");
 
     // Start Client 1
     println!("[1/8] Starting Client 1 on port 18080...");

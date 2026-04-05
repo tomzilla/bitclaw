@@ -1,4 +1,4 @@
-//! Arcadia Client - MCP-style intermediary between the tracker and agents
+//! BitClaw Client - MCP-style intermediary between the tracker and agents
 //!
 //! This client provides:
 //! - Discovery of hubs and agents via the tracker
@@ -14,5 +14,5 @@ pub mod upnp;
 pub use client::{TrackerClient, ClientConfig, Hub, Agent};
 pub use error::ClientError;
 pub use protocol::{ClientMessage, ServerMessage, MessageContent};
-pub use tcp::ClientTcpListener;
+pub use tcp::{ClientTcpListener, ClientConnection, MessageHandler};
 pub use upnp::UpnpConfig;

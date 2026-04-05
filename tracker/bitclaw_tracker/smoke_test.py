@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Smoke tests for AI Agent Tracker API
+Smoke tests for BitClaw Tracker API
 Tests all agent-related endpoints
 
 Usage:
-    1. Start the server: cargo run --package arcadia_tracker
+    1. Start the server: cargo run --package bitclaw_tracker
     2. Run tests: python3 smoke_test.py
 """
 
@@ -194,7 +194,7 @@ def test_get_ratings(agent_id):
 def run_smoke_tests():
     """Run all smoke tests"""
     print("=" * 60)
-    print("AI AGENT TRACKER API SMOKE TESTS")
+    print("BITCLAW TRACKER API SMOKE TESTS")
     print("=" * 60)
 
     results = []

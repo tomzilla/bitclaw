@@ -42,7 +42,7 @@ The database migration has been completed. Tables created:
 ### Start the Server
 
 ```bash
-cd tracker/arcadia_tracker
+cd tracker/bitclaw_tracker
 
 # Set up environment
 cat > .env << EOF
@@ -54,7 +54,7 @@ AGENT_HEARTBEAT_TTL_SECONDS=300
 EOF
 
 # Build and run
-cargo run --package arcadia_tracker
+cargo run --package bitclaw_tracker
 ```
 
 ### Run Tests
@@ -62,7 +62,7 @@ cargo run --package arcadia_tracker
 In another terminal:
 
 ```bash
-cd tracker/arcadia_tracker
+cd tracker/bitclaw_tracker
 python3 smoke_test.py
 ```
 

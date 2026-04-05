@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, ChildProcess } from "node:child_process";
 import * as path from "node:path";
 import * as fs from "node:fs/promises";
 import type {
@@ -8,14 +8,15 @@ import type {
 } from "./api.js";
 
 /**
- * Arcadia Tracker Service
+ * BitClaw Tracker Service
  *
- * Manages the arcadia-agent CLI backend process and maintains connection state.
+ * Manages the bitclaw-agent CLI backend process and maintains connection state.
  * This service spawns the Rust binary on startup and keeps it running for P2P connections.
+ * It also listens for incoming messages and forwards them to OpenClaw.
  */
 
-// Path to the arcadia-agent binary (relative to plugin directory or from PATH)
-const ARCADIA_AGENT_BIN = process.env.ARCADIA_AGENT_BIN || "arcadia-agent";
+// Path to the bitclaw-agent binary (relative to plugin directory or from PATH)
+const BITCLAW_AGENT_BIN = process.env.BITCLAW_AGENT_BIN || "bitclaw-agent";
 
 export interface TrackerServiceState {
   connected: boolean;
@@ -24,6 +25,18 @@ export interface TrackerServiceState {
   localAddress?: string;
   publicAddress?: string;
   upnpEnabled: boolean;
+  listenerProcess: ChildProcess | null;
+  messageCallback: ((msg: IncomingMessage) => void) | null;
+}
+
+export interface IncomingMessage {
+  type: string;
+  from: string;
+  content: {
+    type: "Text" | "Json" | "Binary";
+    [key: string]: unknown;
+  };
+  timestamp: string;
 }
 
 export interface CreateTrackerServiceParams {
@@ -36,38 +49,52 @@ export function createTrackerService(
   let state: TrackerServiceState = {
     connected: false,
     upnpEnabled: false,
+    listenerProcess: null,
+    messageCallback: null,
   };
 
   return {
-    id: "arcadia-tracker",
+    id: "bitclaw-tracker",
 
     async start(ctx: OpenClawPluginServiceContext): Promise<void> {
-      ctx.logger.info("arcadia tracker service starting");
+      ctx.logger.info("bitclaw tracker service starting");
 
-      // Verify the arcadia-agent binary is available
+      // Verify the bitclaw-agent binary is available
       try {
         await verifyBinary();
-        ctx.logger.info("arcadia-agent binary found");
+        ctx.logger.info("bitclaw-agent binary found");
       } catch (error) {
         ctx.logger.warn(
-          `arcadia-agent binary not found: ${error instanceof Error ? error.message : String(error)}. ` +
-          "Set ARCADIA_AGENT_BIN env var or install the binary.",
+          `bitclaw-agent binary not found: ${error instanceof Error ? error.message : String(error)}. ` +
+          "Set BITCLAW_AGENT_BIN env var or install the binary.",
         );
       }
 
-      ctx.logger.info("arcadia tracker service ready");
+      ctx.logger.info("bitclaw tracker service ready");
     },
 
     async stop(_ctx: OpenClawPluginServiceContext): Promise<void> {
-      ctx.logger.info("arcadia tracker service stopping");
-      state = { connected: false, upnpEnabled: false };
+      ctx.logger.info("bitclaw tracker service stopping");
+
+      // Kill listener process if running
+      if (state.listenerProcess) {
+        state.listenerProcess.kill("SIGTERM");
+        state.listenerProcess = null;
+      }
+
+      state = {
+        connected: false,
+        upnpEnabled: false,
+        listenerProcess: null,
+        messageCallback: null,
+      };
     },
   };
 }
 
 async function verifyBinary(): Promise<void> {
   // Check if binary exists in PATH or is an absolute path
-  const bin = ARCADIA_AGENT_BIN;
+  const bin = BITCLAW_AGENT_BIN;
 
   if (path.isAbsolute(bin)) {
     await fs.access(bin);
@@ -88,9 +115,9 @@ async function verifyBinary(): Promise<void> {
 }
 
 /**
- * Execute arcadia-agent CLI command and parse JSON output
+ * Execute bitclaw-agent CLI command and parse JSON output
  */
-export async function runArcadiaCommand<T>(
+export async function runBitclawCommand<T>(
   args: string[],
   logger: { info: (msg: string) => void; warn: (msg: string) => void; error: (msg: string) => void },
 ): Promise<T> {
@@ -98,7 +125,7 @@ export async function runArcadiaCommand<T>(
   const { promisify } = await import("node:util");
   const execAsync = promisify(exec);
 
-  const cmd = `${ARCADIA_AGENT_BIN} ${args.join(" ")}`;
+  const cmd = `${BITCLAW_AGENT_BIN} ${args.join(" ")}`;
   logger.info(`Running: ${cmd}`);
 
   try {
@@ -127,4 +154,76 @@ export async function runArcadiaCommand<T>(
     logger.error(`Command failed: ${errorMsg}`);
     throw error;
   }
+}
+
+/**
+ * Start the bitclaw-agent listen process and stream incoming messages
+ */
+export async function startMessageListener(
+  trackerUrl: string,
+  name: string,
+  hub: string,
+  onMessage: (msg: IncomingMessage) => void,
+  logger: { info: (msg: string) => void; warn: (msg: string) => void; error: (msg: string) => void },
+): Promise<{ stop: () => void }> {
+  const args = [
+    "listen",
+    "--tracker-url", trackerUrl,
+    "--name", name,
+    "--hub", hub,
+    "--lan-mode",
+  ];
+
+  logger.info(`Starting listener: ${BITCLAW_AGENT_BIN} ${args.join(" ")}`);
+
+  const listener = spawn(BITCLAW_AGENT_BIN, args, {
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+
+  let isStopped = false;
+
+  listener.stdout.on("data", (data: Buffer) => {
+    const lines = data.toString().split("\n").filter(line => line.trim());
+
+    for (const line of lines) {
+      try {
+        const msg = JSON.parse(line) as IncomingMessage;
+        logger.info(`Received message from ${msg.from}`);
+        onMessage(msg);
+      } catch (error) {
+        logger.warn(`Failed to parse JSONL line: ${line}`);
+      }
+    }
+  });
+
+  listener.stderr.on("data", (data: Buffer) => {
+    const stderr = data.toString();
+    // Filter out status messages, only log errors
+    if (stderr.includes("ERROR") || stderr.includes("error")) {
+      logger.error(stderr);
+    } else {
+      logger.info(`[listener] ${stderr.trim()}`);
+    }
+  });
+
+  listener.on("error", (error) => {
+    logger.error(`Listener process error: ${error.message}`);
+  });
+
+  listener.on("exit", (code) => {
+    if (!isStopped) {
+      logger.warn(`Listener process exited with code ${code}`);
+    } else {
+      logger.info("Listener stopped");
+    }
+  });
+
+  const stop = () => {
+    isStopped = true;
+    if (listener.pid) {
+      process.kill(listener.pid, "SIGTERM");
+    }
+  };
+
+  return { stop };
 }

@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Multi-Client Smoke Test Suite for AI Agent Tracker API
+Multi-Client Smoke Test Suite for BitClaw Tracker API
 
 Simulates multiple agents connecting to the tracker, discovering each other,
 sending heartbeats, rating each other, and performing various interactions.
 
 Usage:
-    1. Start the server: cargo run --package arcadia_tracker
+    1. Start the server: cargo run --package bitclaw_tracker
     2. Run tests: python3 smoke_test_multiclient.py
 """
 
@@ -469,7 +469,7 @@ class MultiClientTestSuite:
     def run_all_tests(self) -> bool:
         """Run all multi-client tests"""
         print("=" * 70)
-        print("AI AGENT TRACKER - MULTI-CLIENT SMOKE TEST SUITE")
+        print("BITCLAW TRACKER - MULTI-CLIENT SMOKE TEST SUITE")
         print("=" * 70)
 
         # Setup
@@ -522,7 +522,7 @@ class MultiClientTestSuite:
 
 def main():
     """Main entry point"""
-    print("\nMulti-Client Smoke Test Suite for AI Agent Tracker")
+    print("\nMulti-Client Smoke Test Suite for BitClaw Tracker")
     print("This test simulates multiple agents connecting and interacting\n")
 
     # Check server connectivity

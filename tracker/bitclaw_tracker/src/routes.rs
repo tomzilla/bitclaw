@@ -14,6 +14,8 @@ pub fn init(cfg: &mut web::ServiceConfig) {
             // Hub endpoints for peer-to-peer discovery
             .service(resource("/hubs").route(get().to(handlers::hubs::list_hubs)))
             .service(resource("/hubs/search").route(post().to(handlers::hubs::search_agents)))
-            .service(resource("/hubs/{hub_id}/agents").route(get().to(handlers::hubs::get_hub_agents))),
+            .service(resource("/hubs/{hub_id}/agents").route(get().to(handlers::hubs::get_hub_agents)))
+            .service(resource("/hubs/{hub_id}/connect").route(post().to(handlers::hubs::connect_hub)))
+            .service(resource("/hubs/{hub_id}/disconnect").route(post().to(handlers::hubs::disconnect_hub))),
     );
 }

@@ -1,8 +1,8 @@
 {
-  "name": "@openclaw/arcadia",
+  "name": "@openclaw/bitclaw",
   "version": "0.1.0",
   "private": true,
-  "description": "OpenClaw plugin for Arcadia tracker - P2P agent coordination",
+  "description": "OpenClaw plugin for BitClaw tracker - P2P agent coordination",
   "type": "module",
   "dependencies": {
     "@sinclair/typebox": "0.34.48"
@@ -11,5 +11,8 @@
     "extensions": [
       "./index.ts"
     ]
+  },
+  "devDependencies": {
+    "typescript": "^6.0.2"
   }
 }

@@ -4,6 +4,7 @@ use sqlx::types::Uuid;
 use utoipa::ToSchema;
 
 use crate::Tracker;
+use bitclaw_shared::tracker::models::agent::AgentId;
 
 /// Hub information response
 #[derive(Debug, Serialize, ToSchema)]
@@ -206,4 +207,216 @@ pub async fn get_hub_agents(
         hub: hub_response,
         agents,
     })
+}
+
+/// Connect to hub request
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct ConnectHubRequest {
+    /// Client/Agent ID connecting to the hub
+    pub client_id: String,
+    /// Optional client name
+    pub client_name: Option<String>,
+    /// Optional address for peer-to-peer connections
+    pub address: Option<String>,
+}
+
+/// Connect to hub response
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ConnectHubResponse {
+    pub status: String,
+    pub hub_id: String,
+    pub hub_name: String,
+    pub client_id: String,
+    pub message: String,
+}
+
+#[utoipa::path(
+    post,
+    operation_id = "connect_to_hub",
+    tag = "Hubs",
+    path = "/api/v1/hubs/{hub_id}/connect",
+    params(
+        ("hub_id" = Uuid, Path, description = "Hub ID"),
+    ),
+    request_body = ConnectHubRequest,
+    responses(
+        (status = 200, description = "Successfully connected to hub", body = ConnectHubResponse),
+        (status = 404, description = "Hub not found"),
+        (status = 400, description = "Invalid request"),
+    )
+)]
+pub async fn connect_hub(
+    arc: Data<Tracker>,
+    path: Path<Uuid>,
+    body: Json<ConnectHubRequest>,
+) -> HttpResponse {
+    let hub_id = path.into_inner();
+
+    // Verify hub exists
+    let hubs_guard = arc.hubs.read();
+    let hub = match hubs_guard.get(&hub_id) {
+        Some(h) => h,
+        None => {
+            return HttpResponse::NotFound().json(serde_json::json!({
+                "error": "Hub not found"
+            }));
+        }
+    };
+
+    // Parse client_id
+    let client_uuid = match Uuid::parse_str(&body.client_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "error": "Invalid client_id format"
+            }));
+        }
+    };
+
+    // Find the agent and add hub to its list
+    let mut agents_guard = arc.agents.lock();
+
+    // Check if agent exists - use explicit AgentId type
+    let agent_id = AgentId::from(client_uuid);
+    let agent_exists = agents_guard.agents.contains_key(&agent_id);
+
+    if !agent_exists {
+        // Agent not registered - return error suggesting registration first
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "error": "Agent not registered. Please register first via /api/v1/agents"
+        }));
+    }
+
+    // Add hub to agent's hub list if not already present
+    if let Some(agent) = agents_guard.agents.get_mut(&agent_id) {
+        if !agent.hubs.contains(&hub_id) {
+            agent.hubs.push(hub_id);
+            log::info!("Agent {} ({}) connected to hub '{}'", agent.name, agent.agent_id, hub.name);
+        }
+    }
+
+    // Clone hub name before dropping guards
+    let hub_name = hub.name.clone();
+    drop(agents_guard);
+    drop(hubs_guard);
+
+    // Persist hub connection to database
+    let _ = sqlx::query!(
+        r#"
+        INSERT INTO agent_hubs (agent_id, hub_id)
+        VALUES ($1, $2)
+        ON CONFLICT (agent_id, hub_id) DO NOTHING
+        "#,
+        client_uuid,
+        hub_id
+    )
+    .execute(&arc.pool)
+    .await;
+
+    let message = format!("Successfully connected to hub '{}'", hub_name);
+    let response = ConnectHubResponse {
+        status: "connected".to_string(),
+        hub_id: hub_id.to_string(),
+        hub_name: hub_name.clone(),
+        client_id: body.client_id.clone(),
+        message,
+    };
+
+    HttpResponse::Ok().json(response)
+}
+
+/// Disconnect from hub request
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct DisconnectHubRequest {
+    /// Client/Agent ID disconnecting from the hub
+    pub client_id: String,
+}
+
+/// Disconnect from hub response
+#[derive(Debug, Serialize, ToSchema)]
+pub struct DisconnectHubResponse {
+    pub status: String,
+    pub hub_id: String,
+    pub hub_name: String,
+    pub client_id: String,
+    pub message: String,
+}
+
+#[utoipa::path(
+    post,
+    operation_id = "disconnect_from_hub",
+    tag = "Hubs",
+    path = "/api/v1/hubs/{hub_id}/disconnect",
+    params(
+        ("hub_id" = Uuid, Path, description = "Hub ID"),
+    ),
+    request_body = DisconnectHubRequest,
+    responses(
+        (status = 200, description = "Successfully disconnected from hub", body = DisconnectHubResponse),
+        (status = 404, description = "Hub not found"),
+    )
+)]
+pub async fn disconnect_hub(
+    arc: Data<Tracker>,
+    path: Path<Uuid>,
+    body: Json<DisconnectHubRequest>,
+) -> HttpResponse {
+    let hub_id = path.into_inner();
+
+    // Verify hub exists
+    let hubs_guard = arc.hubs.read();
+    let hub = match hubs_guard.get(&hub_id) {
+        Some(h) => h,
+        None => {
+            return HttpResponse::NotFound().json(serde_json::json!({
+                "error": "Hub not found"
+            }));
+        }
+    };
+
+    // Parse client_id
+    let client_uuid = match Uuid::parse_str(&body.client_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "error": "Invalid client_id format"
+            }));
+        }
+    };
+
+    // Remove hub from agent's hub list
+    let mut agents_guard = arc.agents.lock();
+
+    let agent_id = AgentId::from(client_uuid);
+    if let Some(agent) = agents_guard.agents.get_mut(&agent_id) {
+        agent.hubs.retain(|h| *h != hub_id);
+        log::info!("Agent {} ({}) disconnected from hub '{}'", agent.name, agent.agent_id, hub.name);
+    }
+
+    // Clone hub name before dropping guards
+    let hub_name = hub.name.clone();
+    drop(agents_guard);
+    drop(hubs_guard);
+
+    // Remove hub connection from database
+    let _ = sqlx::query!(
+        r#"
+        DELETE FROM agent_hubs WHERE agent_id = $1 AND hub_id = $2
+        "#,
+        client_uuid,
+        hub_id
+    )
+    .execute(&arc.pool)
+    .await;
+
+    let message = format!("Successfully disconnected from hub '{}'", hub_name);
+    let response = DisconnectHubResponse {
+        status: "disconnected".to_string(),
+        hub_id: hub_id.to_string(),
+        hub_name: hub_name.clone(),
+        client_id: body.client_id.clone(),
+        message,
+    };
+
+    HttpResponse::Ok().json(response)
 }

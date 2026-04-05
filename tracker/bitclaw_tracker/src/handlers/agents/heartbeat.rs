@@ -1,5 +1,5 @@
 use actix_web::{web, web::Data, HttpResponse};
-use arcadia_shared::tracker::models::agent::AgentStatus;
+use bitclaw_shared::tracker::models::agent::AgentStatus;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
@@ -49,7 +49,7 @@ pub async fn heartbeat(
     body: web::Json<HeartbeatRequest>,
 ) -> HttpResponse {
     let agent_id = uuid::Uuid::from_u128(body.agent_id.as_u128());
-    let agent_id = arcadia_shared::tracker::models::agent::AgentId(agent_id);
+    let agent_id = bitclaw_shared::tracker::models::agent::AgentId(agent_id);
 
     let now = Utc::now();
 

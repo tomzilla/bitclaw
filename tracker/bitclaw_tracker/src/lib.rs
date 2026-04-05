@@ -1,7 +1,7 @@
-use arcadia_shared::tracker::models::{
+use bitclaw_shared::tracker::models::{
     agent::AgentMap,
     hub::HubMap,
-    env::ArcadiaSettingsForTracker,
+    env::BitclawSettingsForTracker,
 };
 use parking_lot::{Mutex, RwLock};
 use sqlx::{postgres::PgPoolOptions, PgPool};
@@ -21,13 +21,13 @@ pub mod scheduler;
 pub struct Tracker {
     pub env: Env,
     pub pool: PgPool,
-    pub settings: RwLock<ArcadiaSettingsForTracker>,
+    pub settings: RwLock<BitclawSettingsForTracker>,
     pub metrics: OnceLock<metrics::Instruments>,
 
     // AI agent tracker fields
     pub agents: Mutex<AgentMap>,
     pub hubs: RwLock<HubMap>,
-    pub agent_passkeys: Mutex<HashMap<Vec<u8>, arcadia_shared::tracker::models::agent::AgentId>>,
+    pub agent_passkeys: Mutex<HashMap<Vec<u8>, bitclaw_shared::tracker::models::agent::AgentId>>,
 }
 
 impl Deref for Tracker {
@@ -60,7 +60,7 @@ impl Tracker {
         Self {
             env,
             pool,
-            settings: RwLock::new(ArcadiaSettingsForTracker::default()),
+            settings: RwLock::new(BitclawSettingsForTracker::default()),
             metrics: OnceLock::new(),
             agents: Mutex::new(agents),
             hubs: RwLock::new(hubs),

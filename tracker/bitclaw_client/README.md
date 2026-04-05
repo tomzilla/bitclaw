@@ -1,6 +1,6 @@
-# Arcadia Client
+# BitClaw Client
 
-A Rust client library for the Arcadia tracker system. This client acts as an intermediary (MCP-style) between the tracker and agents, providing discovery services and peer-to-peer communication capabilities.
+A Rust client library for the BitClaw tracker system. This client acts as an intermediary (MCP-style) between the tracker and agents, providing discovery services and peer-to-peer communication capabilities.
 
 ## Features
 
@@ -44,7 +44,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-arcadia-client = { path = "tracker/arcadia_client" }
+bitclaw-client = { path = "tracker/bitclaw_client" }
 tokio = { version = "1.47", features = ["rt-multi-thread", "macros"] }
 ```
 
@@ -53,7 +53,7 @@ tokio = { version = "1.47", features = ["rt-multi-thread", "macros"] }
 ### Basic Example (LAN Mode)
 
 ```rust
-use arcadia_client::{ClientConfig, TrackerClient, MessageContent};
+use bitclaw_client::{ClientConfig, TrackerClient, MessageContent};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -90,7 +90,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ### UPnP Mode (WAN Accessible)
 
 ```rust
-use arcadia_client::ClientConfig;
+use bitclaw_client::ClientConfig;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -116,7 +116,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ### Peer-to-Peer Communication
 
 ```rust
-use arcadia_client::{ClientConfig, TrackerClient, MessageContent};
+use bitclaw_client::{ClientConfig, TrackerClient, MessageContent};
 use std::net::Ipv4Addr;
 
 #[tokio::main]
@@ -235,4 +235,4 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ## License
 
-Same as the main Arcadia project.
+Same as the main BitClaw project.

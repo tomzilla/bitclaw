@@ -1,4 +1,4 @@
-//! Example demonstrating the Arcadia Client API
+//! Example demonstrating the BitClaw Client API
 //!
 //! This example shows:
 //! - Creating a client in LAN mode (no UPnP)
@@ -9,7 +9,7 @@
 //! - Connecting to other clients
 //! - Peer-to-peer messaging
 
-use arcadia_client::{ClientConfig, TrackerClient, ClientError, MessageContent};
+use bitclaw_client::{ClientConfig, TrackerClient, ClientError, MessageContent};
 use std::net::Ipv4Addr;
 
 #[tokio::main]
@@ -115,7 +115,7 @@ async fn example_with_upnp() -> Result<(), ClientError> {
 /// Example: Creating a client with custom configuration
 #[allow(dead_code)]
 async fn example_custom_config() -> Result<(), ClientError> {
-    use arcadia_client::UpnpConfig;
+    use bitclaw_client::UpnpConfig;
 
     let config = ClientConfig {
         tracker_url: "http://localhost:8000".to_string(),
@@ -126,7 +126,7 @@ async fn example_custom_config() -> Result<(), ClientError> {
             enabled: true,
             external_port: Some(12345),
             lease_duration: 3600, // 1 hour lease
-            description: "My Arcadia Client".to_string(),
+            description: "My BitClaw Client".to_string(),
         },
     };
 

@@ -1,20 +1,20 @@
 #!/bin/bash
-# Manual test guide for OpenClaw + Arcadia integration
+# Manual test guide for OpenClaw + BitClaw integration
 # This shows how to test the integration step by step
 
 cat << 'EOF'
 =================================================
-  OpenClaw + Arcadia Tracker Integration Test
+  OpenClaw + BitClaw Tracker Integration Test
 =================================================
 
 PREREQUISITES:
-1. Arcadia Tracker server running on http://localhost:8000
-2. arcadia-agent binary built and in PATH
-3. OpenClaw installed with the arcadia plugin
+1. BitClaw Tracker server running on http://localhost:8000
+2. bitclaw-agent binary built and in PATH
+3. OpenClaw installed with the bitclaw plugin
 
 STEP 1: Start the Tracker Server
 -------------------------------------------------
-cd /Users/tomwu/bitagents/tracker/arcadia_tracker
+cd /Users/tomwu/bitagents/tracker/bitclaw_tracker
 cat > .env << 'ENVEOF'
 RUST_LOG=info
 WEB_SERVER_HOST=0.0.0.0
@@ -30,13 +30,13 @@ sleep 5
 curl http://localhost:8000/api/v1/hubs
 
 
-STEP 2: Verify arcadia-agent CLI works
+STEP 2: Verify bitclaw-agent CLI works
 -------------------------------------------------
 # List hubs (should return JSON with available hubs)
-/Users/tomwu/bitagents/target/debug/arcadia-agent list-hubs --tracker-url http://localhost:8000
+/Users/tomwu/bitagents/target/debug/bitclaw-agent list-hubs --tracker-url http://localhost:8000
 
 # Connect to a hub
-/Users/tomwu/bitagents/target/debug/arcadia-agent connect-hub \
+/Users/tomwu/bitagents/target/debug/bitclaw-agent connect-hub \
   --tracker-url http://localhost:8000 \
   --hub-name "test-hub" \
   --client-name "test-client"
@@ -44,7 +44,7 @@ STEP 2: Verify arcadia-agent CLI works
 
 STEP 3: Test via OpenClaw
 -------------------------------------------------
-# In your OpenClaw session, use the arcadia_tracker tool:
+# In your OpenClaw session, use the bitclaw_tracker tool:
 
 # List available hubs
 {
@@ -69,14 +69,14 @@ STEP 3: Test via OpenClaw
 
 STEP 4: Two-Client Test
 -------------------------------------------------
-# Terminal 1: Start OpenClaw with arcadia plugin
+# Terminal 1: Start OpenClaw with bitclaw plugin
 openclaw
 
 # In the chat, invoke the tool to connect:
-# "Connect to the test-hub using arcadia tracker"
+# "Connect to the test-hub using bitclaw tracker"
 
 # Terminal 2: Run a second client that sends messages
-/Users/tomwu/bitagents/target/debug/arcadia-agent connect-hub \
+/Users/tomwu/bitagents/target/debug/bitclaw-agent connect-hub \
   --tracker-url http://localhost:8000 \
   --hub-name "test-hub" \
   --client-name "sender-client"
@@ -89,7 +89,7 @@ STEP 5: Verify P2P Connection
 # Both clients should be able to see each other
 # Run this from either terminal:
 
-/Users/tomwu/bitagents/target/debug/arcadia-agent find-agent \
+/Users/tomwu/bitagents/target/debug/bitclaw-agent find-agent \
   --tracker-url http://localhost:8000 \
   --hub "test-hub" \
   --query "client"
@@ -98,10 +98,10 @@ STEP 5: Verify P2P Connection
 CLEANUP:
 -------------------------------------------------
 # Stop the tracker server
-pkill -f "arcadia_tracker"
+pkill -f "bitclaw_tracker"
 
-# Kill any running arcadia-agent processes
-pkill -f "arcadia-agent"
+# Kill any running bitclaw-agent processes
+pkill -f "bitclaw-agent"
 
 
 TROUBLESHOOTING:
@@ -111,8 +111,8 @@ TROUBLESHOOTING:
    - Check port 8000 is not in use
 
 2. "Binary not found":
-   - Build: cargo build --bin arcadia-agent
-   - Or set: export ARCADIA_AGENT_BIN=/path/to/arcadia-agent
+   - Build: cargo build --bin bitclaw-agent
+   - Or set: export BITCLAW_AGENT_BIN=/path/to/bitclaw-agent
 
 3. "Hub not found":
    - Check hub name matches exactly (case-sensitive)
